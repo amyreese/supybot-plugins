@@ -33,6 +33,7 @@ import cgi
 import time
 import socket
 import urllib
+import random
 
 import supybot.conf as conf
 import supybot.utils as utils
@@ -132,6 +133,51 @@ class Google(callbacks.PluginRegexp):
             raise callbacks.Error, 'We broke The Google!'
         return json
 
+    _gimagesearchUrl = 'http://ajax.googleapis.com/ajax/services/search/images'
+    def imagesearch(self, query, channel, options={}):
+        """Perform a image search using Google's AJAX API.
+        search("search phrase", options={})
+
+        Valid options are:
+            smallsearch - True/False (Default: False)
+            filter - {active,moderate,off} (Default: "moderate")
+            language - Restrict search to documents in the given language
+                       (Default: "lang_en")
+        """
+        ref = self.registryValue('referer')
+        if not ref:
+            ref = 'http://%s/%s' % (dynamic.irc.server,
+                                    dynamic.irc.nick)
+        headers = utils.web.defaultHeaders
+        headers['Referer'] = ref
+        opts = {'q': query, 'v': '1.0'}
+        for (k, v) in options.iteritems():
+            if k == 'smallsearch':
+                if v:
+                    opts['rsz'] = 'small'
+                else:
+                    opts['rsz'] = 'large'
+            elif k == 'filter':
+                opts['safe'] = v
+            elif k == 'language':
+                opts['lr'] = v
+        defLang = self.registryValue('defaultLanguage', channel)
+        if 'lr' not in opts and defLang:
+            opts['lr'] = defLang
+        if 'safe' not in opts:
+            opts['safe'] = self.registryValue('searchFilter', dynamic.channel)
+        if 'rsz' not in opts:
+            opts['rsz'] = 'large'
+
+        fd = utils.web.getUrlFd('%s?%s' % (self._gimagesearchUrl,
+                                           urllib.urlencode(opts)),
+                                headers)
+        json = simplejson.load(fd)
+        fd.close()
+        if json['responseStatus'] != 200:
+            raise callbacks.Error, 'We broke The Google!'
+        return json
+
     def formatData(self, data, bold=True, max=0):
         if isinstance(data, basestring):
             return data
@@ -187,6 +233,55 @@ class Google(callbacks.PluginRegexp):
     google = wrap(google, [getopts({'language':'something',
                                     'filter':''}),
                            'text'])
+
+    def image(self, irc, msg, args, text):
+        """<search>
+
+        Does a google image search, and returns a random image URL.
+        """
+        text = re.sub(r'^\s*me\s*', '', text)
+        data = self.imagesearch(text, msg.args[0])
+        results = data['responseData']['results'];
+        if results:
+            index = random.randint(0, len(results) - 1)
+            url = results[index]['unescapedUrl']
+            irc.reply(url.encode('utf-8'))
+        else:
+            irc.reply('Google found nothing.')
+    image = wrap(image, ['text'])
+
+    def animate(self, irc, msg, args, text):
+        """<search>
+
+        Does a google image search, and returns a random image URL.
+        """
+        text = re.sub(r'^\s*me\s*', '', text) + ' inurl:.gif'
+        data = self.imagesearch(text, msg.args[0])
+        results = data['responseData']['results'];
+        if results:
+            index = random.randint(0, len(results) - 1)
+            url = results[index]['unescapedUrl']
+            irc.reply(url.encode('utf-8'))
+        else:
+            irc.reply('Google found nothing.')
+    animate = wrap(animate, ['text'])
+
+    def mustache(self, irc, msg, args, text):
+        """<search>
+
+        Does a google image search, and returns a random image passed to mustachify.me.
+        """
+        text = re.sub(r'^\s*me\s*', '', text)
+        data = self.imagesearch(text, msg.args[0])
+        results = data['responseData']['results'];
+        if results:
+            index = random.randint(0, len(results) - 1)
+            url = results[index]['unescapedUrl'].encode('utf-8')
+            url = 'http://mustachify.me/?src=' + url
+            irc.reply(url)
+        else:
+            irc.reply('Google found nothing.')
+    mustache = wrap(mustache, ['text'])
 
     def cache(self, irc, msg, args, url):
         """<url>
