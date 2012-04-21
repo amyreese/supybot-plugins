@@ -255,7 +255,7 @@ class Google(callbacks.PluginRegexp):
 
         Does a google image search, and returns a random image URL.
         """
-        text = re.sub(r'^\s*me\s*', '', text) + ' inurl:.gif'
+        text = re.sub(r'^\s*me\s*', '', text) + ' inurl:\.gif'
         data = self.imagesearch(text, msg.args[0])
         results = data['responseData']['results'];
         if results:
