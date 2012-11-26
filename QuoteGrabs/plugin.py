@@ -216,7 +216,6 @@ class QuoteGrabs(callbacks.Plugin):
         try:
             channel = msg.args[0]
             irc = callbacks.SimpleProxy(irc, msg)
-            irc.reply(channel)
             irc.reply(self.db.random(channel, None))
         except:
             pass
