@@ -31,6 +31,7 @@
 import os
 import time
 import random
+import threading
 
 import supybot.dbi as dbi
 import supybot.conf as conf
@@ -181,12 +182,31 @@ class SqliteQuoteGrabsDB(object):
 
 QuoteGrabsDB = plugins.DB('QuoteGrabs', {'sqlite': SqliteQuoteGrabsDB})
 
+def timed_quote(db, irc, msg, channel):
+    irc = callbacks.SimpleProxy(irc, msg)
+    irc.reply(db.random(channel, None))
+
+QUOTE_TIMEOUT = 60 * 60
+
 class QuoteGrabs(callbacks.Plugin):
     """Add the help for "@help QuoteGrabs" here."""
     def __init__(self, irc):
         self.__parent = super(QuoteGrabs, self)
         self.__parent.__init__(irc)
         self.db = QuoteGrabsDB()
+        self.timer_lock = threading.Lock()
+        self.timers = dict()
+
+    def reset_timer(self, irc, msg):
+        with timer_lock:
+            channel = msg.args[0]
+            timer = self.timers.get(channel)
+            if timer:
+                timer.cancel()
+
+            timer = threading.Timer(QUOTE_TIMEOUT, timed_quote,
+                                    (self.db, irc, msg, channel))
+            self.timers[channel] = timer
 
     def doPrivmsg(self, irc, msg):
         irc = callbacks.SimpleProxy(irc, msg)
@@ -210,6 +230,8 @@ class QuoteGrabs(callbacks.Plugin):
                             self._grab(channel, irc, msg, irc.prefix)
                             self._sendGrabMsg(irc, msg)
 
+            self.reset_timer(irc, msg)
+
     def doJoin(self, irc, msg):
         if ircutils.strEqual(irc.nick, msg.nick):
             return # It's us.
@@ -217,6 +239,7 @@ class QuoteGrabs(callbacks.Plugin):
             channel = msg.args[0]
             irc = callbacks.SimpleProxy(irc, msg)
             irc.reply(self.db.random(channel, None))
+            self.reset_timer(irc, msg)
         except:
             pass
 
