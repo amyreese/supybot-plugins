@@ -54,7 +54,7 @@ class QuoteGrabsRecord(dbi.Record):
     def __str__(self):
         grabber = plugins.getUserName(self.grabber)
         return format('%s (Said by: %s; grabbed by %s at %t)',
-                      self.text, self.hostmask, grabber, self.at)
+                      self.text, self.hostmask, grabber, float(self.at))
 
 class SqliteQuoteGrabsDB(object):
     def __init__(self, filename):
