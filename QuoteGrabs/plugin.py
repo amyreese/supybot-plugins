@@ -198,7 +198,7 @@ class QuoteGrabs(callbacks.Plugin):
         self.timers = dict()
 
     def reset_timer(self, irc, msg):
-        with timer_lock:
+        with self.timer_lock:
             channel = msg.args[0]
             timer = self.timers.get(channel)
             if timer:
