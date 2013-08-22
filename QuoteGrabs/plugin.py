@@ -182,10 +182,6 @@ class SqliteQuoteGrabsDB(object):
 
 QuoteGrabsDB = plugins.DB('QuoteGrabs', {'sqlite': SqliteQuoteGrabsDB})
 
-def timed_quote(db, irc, msg, channel):
-    irc = callbacks.SimpleProxy(irc, msg)
-    irc.reply(db.random(channel, None))
-
 QUOTE_TIMEOUT = 60 * 60
 
 class QuoteGrabs(callbacks.Plugin):
@@ -194,19 +190,26 @@ class QuoteGrabs(callbacks.Plugin):
         self.__parent = super(QuoteGrabs, self)
         self.__parent.__init__(irc)
         self.db = QuoteGrabsDB()
-        self.timer_lock = threading.Lock()
+        self.timer_lock = threading.RLock()
         self.timers = dict()
 
-    def reset_timer(self, irc, msg):
+    def timed_quote(self, irc, msg, channel):
         with self.timer_lock:
-            channel = msg.args[0]
-            timer = self.timers.get(channel)
+            irc = callbacks.SimpleProxy(irc, msg)
+            irc.reply(self.db.random(channel, None))
+            self.timers.pop(channel, None)
+
+    def reset_timer(self, irc, msg):
+        channel = msg.args[0]
+        with self.timer_lock:
+            timer = self.timers.pop(channel, None)
             if timer:
                 timer.cancel()
 
-            timer = threading.Timer(QUOTE_TIMEOUT, timed_quote,
-                                    (self.db, irc, msg, channel))
+            timer = threading.Timer(QUOTE_TIMEOUT, self.timed_quote,
+                                    (irc, msg, channel))
             self.timers[channel] = timer
+            timer.start()
 
     def doPrivmsg(self, irc, msg):
         irc = callbacks.SimpleProxy(irc, msg)
