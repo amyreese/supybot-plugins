@@ -238,10 +238,16 @@ class QuoteGrabs(callbacks.Plugin):
         try:
             channel = msg.args[0]
             irc = callbacks.SimpleProxy(irc, msg)
-            irc.reply(self.db.random(channel, None))
+            irc.reply(self.db.random(channel, msg.nick))
             self.reset_timer(irc, msg)
         except:
-            pass
+            try:
+                channel = msg.args[0]
+                irc = callbacks.SimpleProxy(irc, msg)
+                irc.reply(self.db.random(channel, None))
+                self.reset_timer(irc, msg)
+            except:
+                pass
 
     def _grab(self, channel, irc, msg, addedBy):
         self.db.add(channel, msg, addedBy)
