@@ -108,14 +108,20 @@ class SqliteQuoteGrabsDB(object):
         return QuoteGrabsRecord(id, by=by, text=quote, hostmask=hostmask,
                                 at=at, grabber=grabber)
 
-    def random(self, channel, nick):
+    def random(self, channel, nick, fuzz=False):
         db = self._getDb(channel)
         cursor = db.cursor()
         if nick:
-            cursor.execute("""SELECT quote FROM quotegrabs
-                              WHERE nickeq(nick, %s)
-                              ORDER BY random() LIMIT 1""",
-                              nick)
+            if fuzz:
+                cursor.execute("""SELECT quote FROM quotegrabs
+                                  WHERE nick LIKE %s
+                                  ORDER BY random() LIMIT 1""",
+                               nick[:3] + '%')
+            else:
+                cursor.execute("""SELECT quote FROM quotegrabs
+                                  WHERE nickeq(nick, %s)
+                                  ORDER BY random() LIMIT 1""",
+                                  nick)
         else:
             cursor.execute("""SELECT quote FROM quotegrabs
                               ORDER BY random() LIMIT 1""")
@@ -241,12 +247,15 @@ class QuoteGrabs(callbacks.Plugin):
         try:
             channel = msg.args[0]
             irc = callbacks.SimpleProxy(irc, msg)
-            irc.reply(self.db.random(channel, msg.nick))
+            self.log.info('trying fuzzy quote')
+            irc.reply(self.db.random(channel, msg.nick, fuzz=True))
             self.reset_timer(irc, msg)
         except:
+            self.log.exception('fuzzy quote failed')
             try:
                 channel = msg.args[0]
                 irc = callbacks.SimpleProxy(irc, msg)
+                self.log.info('falling back to quote with no nick')
                 irc.reply(self.db.random(channel, None))
                 self.reset_timer(irc, msg)
             except:
