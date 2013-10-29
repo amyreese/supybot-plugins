@@ -42,6 +42,8 @@ import supybot.plugins as plugins
 import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
 
+import twitter
+
 class QuoteGrabsRecord(dbi.Record):
     __fields__ = [
         'by',
@@ -199,6 +201,17 @@ class QuoteGrabs(callbacks.Plugin):
         self.timer_lock = threading.RLock()
         self.timers = dict()
 
+        consumer_key = self.registryValue('consumer_key', '')
+        consumer_secret = self.registryValue('consumer_secret', '')
+        access_key = self.registryValue('access_key', '')
+        access_secret = self.registryValue('access_secret', '')
+
+        self.twitter = twitter.Api(consumer_key=consumer_key,
+                                   consumer_secret=consumer_secret,
+                                   access_token_key=access_key,
+                                   access_token_secret=access_secret)
+        self.tweet_id = 0
+
     def timed_quote(self, irc, msg, channel):
         with self.timer_lock:
             irc = callbacks.SimpleProxy(irc, msg)
@@ -216,6 +229,11 @@ class QuoteGrabs(callbacks.Plugin):
                                     (irc, msg, channel))
             self.timers[channel] = timer
             timer.start()
+
+    def twitter_post(self, irc, msg):
+        text = ircmsgs.prettyPrint(msg)
+        text = text[text.find('>') + 2:]
+        self.twitter.PostUpdate(text)
 
     def doPrivmsg(self, irc, msg):
         irc = callbacks.SimpleProxy(irc, msg)
@@ -287,6 +305,7 @@ class QuoteGrabs(callbacks.Plugin):
             if m.command == 'PRIVMSG' and ircutils.nickEqual(m.nick, nick) \
                     and ircutils.strEqual(m.args[0], chan):
                 self._grab(channel, irc, m, msg.prefix)
+                self.twitter_post(irc, m)
                 irc.replySuccess()
                 return
         irc.error('I couldn\'t find a proper message to grab.')

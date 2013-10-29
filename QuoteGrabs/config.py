@@ -36,7 +36,12 @@ def configure(advanced):
     # user or not.  You should effect your configuration by manipulating the
     # registry as appropriate.
     from supybot.questions import expect, anything, something, yn
-    conf.registerPlugin('QuoteGrabs', True)
+    QuoteGrabs = conf.registerPlugin('QuoteGrabs', True)
+
+    QuoteGrabs.consumer_key.setValue(something('twitter consumer key:'))
+    QuoteGrabs.consumer_secret.setValue(something('twitter consumer secret:'))
+    QuoteGrabs.access_key.setValue(something('twitter access key:'))
+    QuoteGrabs.access_secret.setValue(something('twitter access secret:'))
 
 
 QuoteGrabs = conf.registerPlugin('QuoteGrabs')
@@ -61,5 +66,15 @@ conf.registerChannelValue(conf.supybot.plugins.QuoteGrabs.randomGrabber,
     'minimumCharacters', registry.PositiveInteger(8, """Determines the
     minimum number of characters in a message for it to be considered for
     random grabbing."""))
+
+conf.registerChannelValue(conf.supybot.plugins.QuoteGrabs, 'consumer_key',
+    registry.String('', 'twitter.com consumer key', private=True))
+conf.registerChannelValue(conf.supybot.plugins.QuoteGrabs, 'consumer_secret',
+    registry.String('', 'twitter.com consumer secret', private=True))
+
+conf.registerChannelValue(conf.supybot.plugins.QuoteGrabs, 'access_key',
+    registry.String('', 'twitter.com access key', private=True))
+conf.registerChannelValue(conf.supybot.plugins.QuoteGrabs, 'access_secret',
+    registry.String('', 'twitter.com access secret', private=True))
 
 # vim:set shiftwidth=4 softtabstop=4 expandtab textwidth=79:
