@@ -191,6 +191,7 @@ class SqliteQuoteGrabsDB(object):
 QuoteGrabsDB = plugins.DB('QuoteGrabs', {'sqlite': SqliteQuoteGrabsDB})
 
 QUOTE_TIMEOUT = 60 * 60
+TWITTER_TIMEOUT = 60  # twitter api rate limit
 
 class QuoteGrabs(callbacks.Plugin):
     """Add the help for "@help QuoteGrabs" here."""
@@ -211,6 +212,7 @@ class QuoteGrabs(callbacks.Plugin):
                                    access_token_key=access_key,
                                    access_token_secret=access_secret)
         self.tweet_id = 0
+        self.tweet_timer = None
 
     def timed_quote(self, irc, msg, channel):
         with self.timer_lock:
@@ -230,10 +232,43 @@ class QuoteGrabs(callbacks.Plugin):
             self.timers[channel] = timer
             timer.start()
 
+            if self.tweet_timer is None:
+                self.tweet_timer = threading.Timer(TWITTER_TIMEOUT,
+                                                   self.timed_tweet,
+                                                   (irc, msg, channel))
+                self.tweet_timer.start()
+
     def twitter_post(self, irc, msg):
         text = ircmsgs.prettyPrint(msg)
         text = text[text.find('>') + 2:]
         self.twitter.PostUpdate(text)
+
+    def timed_tweet(self, irc, msg, channel):
+        self.log.debug('checking twitter timeline...')
+        try:
+            timeline = self.twitter.GetHomeTimeline()
+            tweet_id = None
+            for status in timeline:
+                if self.tweet_id == 0:
+                    self.tweet_id = status.id
+                    break
+
+                if self.tweet_id < status.id:
+                    tweet_text = '@{0}: "{1}"'.format(status.user.screen_name,
+                                                      status.text)
+                    tweet_id = status.id
+
+            if tweet_id:
+                self.tweet_id = tweet_id
+                irc.reply(tweet_text)
+
+        except:
+            self.log.exception('periodic twitter check failed')
+
+        self.tweet_timer = threading.Timer(TWITTER_TIMEOUT,
+                                           self.timed_tweet,
+                                           (irc, msg, channel))
+        self.tweet_timer.start()
 
     def doPrivmsg(self, irc, msg):
         irc = callbacks.SimpleProxy(irc, msg)
