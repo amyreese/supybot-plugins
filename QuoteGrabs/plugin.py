@@ -213,6 +213,7 @@ class QuoteGrabs(callbacks.Plugin):
                                    access_token_secret=access_secret)
         self.tweet_id = 0
         self.tweet_timer = None
+        self.tweet_user = self.twitter.VerifyCredentials()
 
     def timed_quote(self, irc, msg, channel):
         with self.timer_lock:
@@ -253,7 +254,8 @@ class QuoteGrabs(callbacks.Plugin):
                     self.tweet_id = status.id
                     break
 
-                if self.tweet_id < status.id:
+                if self.tweet_id < status.id \
+                   and status.user.id != self.tweet_user.id:
                     tweet_text = '@{0}: "{1}"'.format(status.user.screen_name,
                                                       status.text)
                     tweet_id = status.id
