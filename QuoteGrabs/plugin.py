@@ -28,6 +28,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 ###
 
+import datetime
 import os
 import time
 import random
@@ -212,6 +213,7 @@ class QuoteGrabs(callbacks.Plugin):
                                    access_token_key=access_key,
                                    access_token_secret=access_secret)
         self.tweet_id = 0
+        self.tweet_date = None
         self.tweet_timer = None
         self.tweet_user = self.twitter.VerifyCredentials()
 
@@ -266,6 +268,22 @@ class QuoteGrabs(callbacks.Plugin):
 
         except:
             self.log.exception('periodic twitter check failed')
+
+        try:
+            lunch = datetime.time.time(hour=12, minute=30)
+            now = datetime.datetime.now()
+
+            if self.tweet_date and self.tweet_date != now.date() and now.time() >= lunch:
+                quote = self.db.random(channel, None)
+                quote = quote[quote.find('>') + 2:]
+                tweet_text = 'flashback: ' + quote
+
+                self.twitter.PostUpdate(tweet_text)
+
+                self.tweet_date = now.date()
+
+        except:
+            self.log.exception('daily archive post failed')
 
         self.tweet_timer = threading.Timer(TWITTER_TIMEOUT,
                                            self.timed_tweet,
