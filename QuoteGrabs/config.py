@@ -67,14 +67,16 @@ conf.registerChannelValue(conf.supybot.plugins.QuoteGrabs.randomGrabber,
     minimum number of characters in a message for it to be considered for
     random grabbing."""))
 
-conf.registerChannelValue(conf.supybot.plugins.QuoteGrabs, 'consumer_key',
+conf.registerGlobalValue(conf.supybot.plugins.QuoteGrabs, 'twitter_channels',
+    registry.String('', 'channels to broadcast quotes to/from twitter'))
+conf.registerGlobalValue(conf.supybot.plugins.QuoteGrabs, 'consumer_key',
     registry.String('', 'twitter.com consumer key', private=True))
-conf.registerChannelValue(conf.supybot.plugins.QuoteGrabs, 'consumer_secret',
+conf.registerGlobalValue(conf.supybot.plugins.QuoteGrabs, 'consumer_secret',
     registry.String('', 'twitter.com consumer secret', private=True))
 
-conf.registerChannelValue(conf.supybot.plugins.QuoteGrabs, 'access_key',
+conf.registerGlobalValue(conf.supybot.plugins.QuoteGrabs, 'access_key',
     registry.String('', 'twitter.com access key', private=True))
-conf.registerChannelValue(conf.supybot.plugins.QuoteGrabs, 'access_secret',
+conf.registerGlobalValue(conf.supybot.plugins.QuoteGrabs, 'access_secret',
     registry.String('', 'twitter.com access secret', private=True))
 
 # vim:set shiftwidth=4 softtabstop=4 expandtab textwidth=79:

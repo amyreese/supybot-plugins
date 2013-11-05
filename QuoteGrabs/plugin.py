@@ -42,6 +42,7 @@ import supybot.ircmsgs as ircmsgs
 import supybot.plugins as plugins
 import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
+import supybot.schedule as schedule
 
 import twitter
 
@@ -200,53 +201,74 @@ class QuoteGrabs(callbacks.Plugin):
         self.__parent = super(QuoteGrabs, self)
         self.__parent.__init__(irc)
         self.db = QuoteGrabsDB()
-        self.timer_lock = threading.RLock()
-        self.timers = dict()
 
-        consumer_key = self.registryValue('consumer_key', '')
-        consumer_secret = self.registryValue('consumer_secret', '')
-        access_key = self.registryValue('access_key', '')
-        access_secret = self.registryValue('access_secret', '')
+        for event_name in schedule.schedule.events:
+            if event_name.startswith('idle_quote_'):
+                schedule.removeEvent(event_name)
 
-        self.twitter = twitter.Api(consumer_key=consumer_key,
-                                   consumer_secret=consumer_secret,
-                                   access_token_key=access_key,
-                                   access_token_secret=access_secret)
-        self.tweet_id = 0
-        self.tweet_date = None
-        self.tweet_timer = None
-        self.tweet_user = self.twitter.VerifyCredentials()
+        try:
+            schedule.removeEvent('twitter_timeline')
+        except KeyError:
+            pass
+
+        self.twitter = None
+        self.twitter_user = None
+
+        try:
+            consumer_key = self.registryValue('consumer_key', '')
+            consumer_secret = self.registryValue('consumer_secret', '')
+            access_key = self.registryValue('access_key', '')
+            access_secret = self.registryValue('access_secret', '')
+
+            self.twitter = twitter.Api(consumer_key=consumer_key,
+                                       consumer_secret=consumer_secret,
+                                       access_token_key=access_key,
+                                       access_token_secret=access_secret)
+            self.tweet_id = 0
+            self.twitter_user = self.twitter.VerifyCredentials()
+
+            if self.twitter and self.twitter_user:
+                self.log.info('twitter authenticated as @%s',
+                              self.twitter_user.screen_name)
+                schedule.addPeriodicEvent(lambda: self.twitter_timeline(irc),
+                                          TWITTER_TIMEOUT, 'twitter_timeline')
+
+        except:
+            self.log.exception('error initializing twitter client, configure '
+                               'keys and secrets and then reload QuoteGrabs')
+
 
     def timed_quote(self, irc, msg, channel):
-        with self.timer_lock:
-            irc = callbacks.SimpleProxy(irc, msg)
-            irc.reply(self.db.random(channel, None))
-            self.timers.pop(channel, None)
+        irc = callbacks.SimpleProxy(irc, msg)
+        irc.reply(self.db.random(channel, None))
 
     def reset_timer(self, irc, msg):
+        self.log.debug('resetting quote timers')
+
         channel = msg.args[0]
-        with self.timer_lock:
-            timer = self.timers.pop(channel, None)
-            if timer:
-                timer.cancel()
+        event_name = 'idle_quote_' + channel
 
-            timer = threading.Timer(QUOTE_TIMEOUT, self.timed_quote,
-                                    (irc, msg, channel))
-            self.timers[channel] = timer
-            timer.start()
+        try:
+            schedule.removeEvent(event_name)
+        except KeyError:
+            pass
 
-            if self.tweet_timer is None:
-                self.tweet_timer = threading.Timer(TWITTER_TIMEOUT,
-                                                   self.timed_tweet,
-                                                   (irc, msg, channel))
-                self.tweet_timer.start()
+        when = time.time() + QUOTE_TIMEOUT
+        schedule.addEvent(lambda: self.timed_quote(irc, msg, channel),
+                          when, name=event_name)
 
     def twitter_post(self, irc, msg):
         text = ircmsgs.prettyPrint(msg)
         text = text[text.find('>') + 2:]
         self.twitter.PostUpdate(text)
 
-    def timed_tweet(self, irc, msg, channel):
+    def twitter_timeline(self, irc):
+        channels = self.registryValue('twitter_channels').split()
+
+        if not channels:
+            self.log.debug('no channels configured for twitter broadcast')
+            return
+
         self.log.debug('checking twitter timeline...')
         try:
             timeline = self.twitter.GetHomeTimeline()
@@ -257,38 +279,37 @@ class QuoteGrabs(callbacks.Plugin):
                     break
 
                 if self.tweet_id < status.id \
-                   and status.user.id != self.tweet_user.id:
+                   and status.user.id != self.twitter_user.id:
                     tweet_text = '@{0}: "{1}"'.format(status.user.screen_name,
                                                       status.text)
                     tweet_id = status.id
 
             if tweet_id:
                 self.tweet_id = tweet_id
-                irc.reply(tweet_text)
+                for channel in channels:
+                    irc.queueMsg(ircmsgs.privmsg(channel, tweet_text))
+                    irc.noReply()
 
         except:
             self.log.exception('periodic twitter check failed')
 
+        self.log.debug('checking time')
         try:
-            lunch = datetime.time.time(hour=12, minute=30)
-            now = datetime.datetime.now()
+            lunch = datetime.time(hour=12, minute=30)
+            now = datetime.datetime.now().time()
 
-            if self.tweet_date and self.tweet_date != now.date() and now.time() >= lunch:
+            if now.hour == lunch.hour and now.minute == lunch.minute:
+                self.log.debug('posting daily flashback')
+
+                channel = random.choice(channels)
                 quote = self.db.random(channel, None)
                 quote = quote[quote.find('>') + 2:]
                 tweet_text = 'flashback: ' + quote
 
                 self.twitter.PostUpdate(tweet_text)
 
-                self.tweet_date = now.date()
-
         except:
             self.log.exception('daily archive post failed')
-
-        self.tweet_timer = threading.Timer(TWITTER_TIMEOUT,
-                                           self.timed_tweet,
-                                           (irc, msg, channel))
-        self.tweet_timer.start()
 
     def doPrivmsg(self, irc, msg):
         irc = callbacks.SimpleProxy(irc, msg)
@@ -315,6 +336,8 @@ class QuoteGrabs(callbacks.Plugin):
             self.reset_timer(irc, msg)
 
     def doJoin(self, irc, msg):
+        self.reset_timer(irc, msg)
+
         if ircutils.strEqual(irc.nick, msg.nick):
             return # It's us.
         try:
@@ -322,7 +345,6 @@ class QuoteGrabs(callbacks.Plugin):
             irc = callbacks.SimpleProxy(irc, msg)
             self.log.info('trying fuzzy quote')
             irc.reply(self.db.random(channel, msg.nick, fuzz=True))
-            self.reset_timer(irc, msg)
         except:
             self.log.exception('fuzzy quote failed')
             try:
@@ -330,7 +352,6 @@ class QuoteGrabs(callbacks.Plugin):
                 irc = callbacks.SimpleProxy(irc, msg)
                 self.log.info('falling back to quote with no nick')
                 irc.reply(self.db.random(channel, None))
-                self.reset_timer(irc, msg)
             except:
                 pass
 
