@@ -202,8 +202,9 @@ class QuoteGrabs(callbacks.Plugin):
         self.__parent.__init__(irc)
         self.db = QuoteGrabsDB()
 
-        for event_name in schedule.schedule.events:
+        for event_name in list(schedule.schedule.events.keys()):
             if event_name.startswith('idle_quote_'):
+                self.log.debug('cancelling event %s', event_name)
                 schedule.removeEvent(event_name)
 
         try:
