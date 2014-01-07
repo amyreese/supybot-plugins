@@ -261,6 +261,10 @@ class QuoteGrabs(callbacks.Plugin):
     def twitter_post(self, irc, msg):
         text = ircmsgs.prettyPrint(msg)
         text = text[text.find('>') + 2:]
+
+        if len(text) > 140:
+            text = text[:138] + '...'
+
         self.twitter.PostUpdate(text)
 
     def twitter_timeline(self, irc):
@@ -281,7 +285,7 @@ class QuoteGrabs(callbacks.Plugin):
 
                 if self.tweet_id < status.id \
                    and status.user.id != self.twitter_user.id:
-                    tweet_text = '@{0}: "{1}"'.format(status.user.screen_name,
+                    tweet_text = u'@{0}: "{1}"'.format(status.user.screen_name,
                                                       status.text)
                     tweet_id = status.id
 
@@ -306,6 +310,9 @@ class QuoteGrabs(callbacks.Plugin):
                 quote = self.db.random(channel, None)
                 quote = quote[quote.find('>') + 2:]
                 tweet_text = 'flashback: ' + quote
+
+                if len(tweet_text) > 140:
+                    tweet_text = tweet_text[:138] + '...'
 
                 self.twitter.PostUpdate(tweet_text)
 
