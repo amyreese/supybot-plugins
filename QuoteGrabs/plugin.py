@@ -265,7 +265,10 @@ class QuoteGrabs(callbacks.Plugin):
         if len(text) > 140:
             text = text[:138] + '...'
 
-        self.twitter.PostUpdate(text)
+        try:
+            self.twitter.PostUpdate(text)
+        except twitter.TwitterError:
+            self.log.exception('Posting quote to twitter failed')
 
     def twitter_timeline(self, irc):
         channels = self.registryValue('twitter_channels').split()
@@ -293,7 +296,6 @@ class QuoteGrabs(callbacks.Plugin):
                 self.tweet_id = tweet_id
                 for channel in channels:
                     irc.queueMsg(ircmsgs.privmsg(channel, tweet_text))
-                    irc.noReply()
 
         except:
             self.log.exception('periodic twitter check failed')
@@ -314,7 +316,10 @@ class QuoteGrabs(callbacks.Plugin):
                 if len(tweet_text) > 140:
                     tweet_text = tweet_text[:138] + '...'
 
-                self.twitter.PostUpdate(tweet_text)
+                try:
+                    self.twitter.PostUpdate(tweet_text)
+                except twitter.TwitterError:
+                    self.log.exception('Posting daily flashback failed')
 
         except:
             self.log.exception('daily archive post failed')
