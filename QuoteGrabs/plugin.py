@@ -300,30 +300,6 @@ class QuoteGrabs(callbacks.Plugin):
         except:
             self.log.exception('periodic twitter check failed')
 
-        self.log.debug('checking time')
-        try:
-            lunch = datetime.time(hour=12, minute=30)
-            now = datetime.datetime.now().time()
-
-            if now.hour == lunch.hour and now.minute == lunch.minute:
-                self.log.debug('posting daily flashback')
-
-                channel = random.choice(channels)
-                quote = self.db.random(channel, None)
-                quote = quote[quote.find('>') + 2:]
-                tweet_text = 'flashback: ' + quote
-
-                if len(tweet_text) > 140:
-                    tweet_text = tweet_text[:138] + '...'
-
-                try:
-                    self.twitter.PostUpdate(tweet_text)
-                except twitter.TwitterError:
-                    self.log.exception('Posting daily flashback failed')
-
-        except:
-            self.log.exception('daily archive post failed')
-
     def doPrivmsg(self, irc, msg):
         irc = callbacks.SimpleProxy(irc, msg)
         if irc.isChannel(msg.args[0]):
