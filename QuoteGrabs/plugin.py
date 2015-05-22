@@ -288,7 +288,7 @@ class QuoteGrabs(callbacks.Plugin):
 
                 if self.tweet_id < status.id \
                    and status.user.id != self.twitter_user.id:
-                    tweet_text = u'@{0}: "{1}"'.format(status.user.screen_name,
+                    tweet_text = u'@{0}: {1}'.format(status.user.screen_name,
                                                       status.text)
                     tweet_id = status.id
 
