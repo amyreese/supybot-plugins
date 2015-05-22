@@ -193,7 +193,7 @@ class SqliteQuoteGrabsDB(object):
 QuoteGrabsDB = plugins.DB('QuoteGrabs', {'sqlite': SqliteQuoteGrabsDB})
 
 QUOTE_TIMEOUT = 60 * 60
-TWITTER_TIMEOUT = 60  # twitter api rate limit
+TWITTER_TIMEOUT = 90  # twitter api rate limit
 
 class QuoteGrabs(callbacks.Plugin):
     """Add the help for "@help QuoteGrabs" here."""
