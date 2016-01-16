@@ -130,7 +130,10 @@ class Google(callbacks.PluginRegexp):
         json = simplejson.load(fd)
         fd.close()
         if json['responseStatus'] != 200:
-            raise callbacks.Error, 'We broke The Google!'
+            status = json['responseStatus']
+            message = json['responseDetails']
+            raise callbacks.Error, 'We broke The Google! (%s, %s)' % (status,
+                                                                      message)
         return json
 
     _gimagesearchUrl = 'http://ajax.googleapis.com/ajax/services/search/images'
@@ -175,7 +178,10 @@ class Google(callbacks.PluginRegexp):
         json = simplejson.load(fd)
         fd.close()
         if json['responseStatus'] != 200:
-            raise callbacks.Error, 'We broke The Google!'
+            status = json['responseStatus']
+            message = json['responseDetails']
+            raise callbacks.Error, 'We broke The Google! (%s, %s)' % (status,
+                                                                      message)
         return json
 
     def formatData(self, data, bold=True, max=0):
@@ -371,7 +377,10 @@ class Google(callbacks.PluginRegexp):
         json = simplejson.load(fd)
         fd.close()
         if json['responseStatus'] != 200:
-            raise callbacks.Error, 'We broke The Google!'
+            status = json['responseStatus']
+            message = json['responseDetails']
+            raise callbacks.Error, 'We broke The Google! (%s, %s)' % (status,
+                                                                      message)
         irc.reply(json['responseData']['translatedText'].encode('utf-8'))
     translate = wrap(translate, ['something', 'to', 'something', 'text'])
 
