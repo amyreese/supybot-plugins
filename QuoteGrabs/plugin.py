@@ -362,6 +362,7 @@ class QuoteGrabs(callbacks.Plugin):
         # opposed to channel which is used to determine which db to store the
         # quote in
         chan = msg.args[0]
+        nick = nick.lstrip('@')
         if chan is None:
             raise callbacks.ArgumentError
         if ircutils.nickEqual(nick, msg.nick):
